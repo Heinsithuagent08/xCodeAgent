@@ -267,7 +267,7 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Chat endpoint failed: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "An internal error has occurred.",
             "timestamp": datetime.now().isoformat()
         }
 
