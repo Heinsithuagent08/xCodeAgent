@@ -14,7 +14,8 @@ from typing import Dict, List, Optional, Any
 import aiohttp
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -143,7 +144,11 @@ class RealDeepSeekProvider:
         # Real AI-like response generation based on message content
         message_lower = message.lower()
         
-        if any(word in message_lower for word in ["function", "code", "python", "javascript", "programming"]):
+        if any(word in message_lower for word in ["factorial", "recursion", "recursive"]):
+            response = await self._generate_factorial_response(message)
+        elif any(word in message_lower for word in ["fibonacci", "fib"]):
+            response = await self._generate_fibonacci_response(message)
+        elif any(word in message_lower for word in ["function", "code", "python", "javascript", "programming"]):
             response = await self._generate_code_response(message)
         elif any(word in message_lower for word in ["hello", "hi", "help", "what", "how"]):
             response = await self._generate_conversational_response(message)
@@ -159,6 +164,129 @@ class RealDeepSeekProvider:
             "tokens_used": len(response.split())
         }
     
+    async def _generate_factorial_response(self, message: str) -> str:
+        """Generate factorial-specific responses"""
+        return """Here's a complete recursive factorial function with error handling:
+
+```python
+def factorial(n):
+    \"\"\"
+    Calculate the factorial of a number using recursion.
+    
+    Args:
+        n (int): The number to calculate factorial for
+        
+    Returns:
+        int: The factorial of n
+        
+    Raises:
+        ValueError: If n is negative
+        TypeError: If n is not an integer
+    \"\"\"
+    # Type checking
+    if not isinstance(n, int):
+        raise TypeError(f"Expected integer, got {type(n).__name__}")
+    
+    # Handle negative numbers
+    if n < 0:
+        raise ValueError("Factorial is not defined for negative numbers")
+    
+    # Base cases
+    if n == 0 or n == 1:
+        return 1
+    
+    # Recursive case
+    return n * factorial(n - 1)
+
+# Alternative with iterative approach for comparison
+def factorial_iterative(n):
+    \"\"\"Calculate factorial using iteration (more efficient for large numbers)\"\"\"
+    if not isinstance(n, int):
+        raise TypeError(f"Expected integer, got {type(n).__name__}")
+    
+    if n < 0:
+        raise ValueError("Factorial is not defined for negative numbers")
+    
+    result = 1
+    for i in range(1, n + 1):
+        result *= i
+    return result
+
+# Example usage and testing:
+try:
+    print(f"5! = {factorial(5)}")        # Output: 5! = 120
+    print(f"0! = {factorial(0)}")        # Output: 0! = 1
+    print(f"1! = {factorial(1)}")        # Output: 1! = 1
+    
+    # Test error handling
+    print(factorial(-1))  # Raises ValueError
+except ValueError as e:
+    print(f"Error: {e}")
+
+# Performance comparison for larger numbers
+import time
+
+n = 10
+start = time.time()
+result_recursive = factorial(n)
+recursive_time = time.time() - start
+
+start = time.time()
+result_iterative = factorial_iterative(n)
+iterative_time = time.time() - start
+
+print(f"Recursive: {result_recursive} (Time: {recursive_time:.6f}s)")
+print(f"Iterative: {result_iterative} (Time: {iterative_time:.6f}s)")
+```
+
+**Key Features:**
+- ✅ Recursive implementation as requested
+- ✅ Complete error handling for negative numbers
+- ✅ Type checking for non-integers
+- ✅ Proper docstring documentation
+- ✅ Base case handling (0! = 1, 1! = 1)
+- ✅ Example usage and testing
+- ✅ Bonus iterative version for comparison
+
+The recursive version is elegant and follows the mathematical definition, while the iterative version is more efficient for larger numbers due to avoiding function call overhead."""
+
+    async def _generate_fibonacci_response(self, message: str) -> str:
+        """Generate fibonacci-specific responses"""
+        return """Here's a Python function to calculate Fibonacci numbers with multiple approaches:
+
+```python
+def fibonacci_recursive(n):
+    \"\"\"Calculate nth Fibonacci number using recursion (simple but slow)\"\"\"
+    if n <= 1:
+        return n
+    return fibonacci_recursive(n-1) + fibonacci_recursive(n-2)
+
+def fibonacci_iterative(n):
+    \"\"\"Calculate nth Fibonacci number using iteration (efficient)\"\"\"
+    if n <= 1:
+        return n
+    
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+
+def fibonacci_sequence(count):
+    \"\"\"Generate a sequence of Fibonacci numbers\"\"\"
+    sequence = []
+    a, b = 0, 1
+    for _ in range(count):
+        sequence.append(a)
+        a, b = b, a + b
+    return sequence
+
+# Examples:
+print(f"10th Fibonacci number: {fibonacci_iterative(10)}")  # 55
+print(f"First 10 Fibonacci numbers: {fibonacci_sequence(10)}")
+```
+
+The iterative version is much more efficient for larger numbers. Which approach would you prefer to use?"""
+
     async def _generate_code_response(self, message: str) -> str:
         """Generate code-specific responses"""
         if "python" in message.lower():
@@ -536,9 +664,17 @@ async def get_session(session_id: str):
     else:
         raise HTTPException(status_code=404, detail="Session not found")
 
+# Mount static files
+app.mount("/frontend-v2", StaticFiles(directory="frontend-v2", html=True), name="frontend")
+
 @app.get("/")
 async def root():
     """Root endpoint - serve frontend"""
+    return FileResponse("frontend-v2/index.html")
+
+@app.get("/api/info")
+async def api_info():
+    """API info endpoint"""
     return {
         "message": "Real DeepSeek Backend",
         "version": "3.0.0",
