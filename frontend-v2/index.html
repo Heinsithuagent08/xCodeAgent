@@ -1138,9 +1138,47 @@ $ █
         </div>
     </div>
 
+    <!-- Embedded Configuration -->
     <script>
-        // Configuration
-        const API_BASE_URL = 'https://work-1-ghtpeisgtbqwlbdq.prod-runtime.all-hands.dev';
+        // Embedded Configuration for Production Runtime
+        function getApiBaseUrl() {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const protocol = window.location.protocol;
+            
+            console.log('Detecting environment:', { hostname, port, protocol });
+            
+            // If running on localhost, use local backend
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return `http://localhost:12000`;
+            }
+            
+            // If running in production runtime environment
+            if (hostname.includes('prod-runtime') || hostname.includes('all-hands.dev')) {
+                // Use work-2 hostname for backend (port 12001 maps to our backend)
+                return `https://${hostname.replace('work-1-', 'work-2-')}`;
+            }
+            
+            // Default fallback
+            return 'http://localhost:12000';
+        }
+
+        // Set global configuration
+        const apiBaseUrl = getApiBaseUrl();
+        window.APP_CONFIG = {
+            API_BASE_URL: apiBaseUrl,
+            WEBSOCKET_URL: apiBaseUrl.replace('http', 'ws') + '/ws',
+            VLLM_URL: 'http://localhost:8000',
+            DEBUG: window.location.hostname === 'localhost'
+        };
+        
+        // Make API_BASE_URL globally available
+        window.API_BASE_URL = window.APP_CONFIG.API_BASE_URL;
+        
+        console.log('Frontend Config:', window.APP_CONFIG);
+        
+        // Configuration - now embedded
+        const API_BASE_URL = window.APP_CONFIG.API_BASE_URL;
         
         // State management
         let currentSession = null;
