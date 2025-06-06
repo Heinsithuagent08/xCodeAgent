@@ -16,8 +16,8 @@ function getApiBaseUrl() {
     
     // If running in production runtime environment
     if (hostname.includes('prod-runtime') || hostname.includes('all-hands.dev')) {
-        // Use the same hostname but with port 12000
-        return `https://${hostname.replace('work-1-', 'work-2-')}`;
+        // Use the same hostname with the correct port
+        return `https://${hostname}`;
     }
     
     // If running in Docker or other production
