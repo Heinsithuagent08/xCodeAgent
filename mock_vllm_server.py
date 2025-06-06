@@ -1,14 +1,38 @@
 #!/usr/bin/env python3
 """
-Mock vLLM server for testing purposes
+Enhanced Mock vLLM Server for Testing
+Simulates DeepSeek R1 responses without requiring actual model
 """
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List, Optional
-import uvicorn
-import json
 
-app = FastAPI(title="Mock vLLM Server", version="1.0.0")
+import asyncio
+import json
+import logging
+import time
+from datetime import datetime
+from typing import Dict, Any, Optional, List
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Mock vLLM Server",
+    description="Enhanced mock server simulating vLLM API for testing",
+    version="1.0.0"
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ChatMessage(BaseModel):
     role: str
