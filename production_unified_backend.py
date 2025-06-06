@@ -119,11 +119,12 @@ class ProductionVLLMClient:
                             "attempt": attempt + 1
                         }
             except Exception as e:
+                logger.error(f"Health check failed: {e}")
                 if attempt == self.connection_retries - 1:  # Last attempt
                     return {
                         "status": "unreachable",
                         "url": self.base_url,
-                        "error": str(e),
+                        "error": "An internal error occurred while checking health.",
                         "attempts": self.connection_retries
                     }
                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
@@ -321,7 +322,7 @@ async def get_system_status():
         logger.error(f"Status check failed: {e}")
         return {
             "success": False,
-            "error": str(e),
+            "error": "An internal error occurred while retrieving system status.",
             "timestamp": datetime.now().isoformat()
         }
 
