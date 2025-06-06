@@ -1244,8 +1244,8 @@ $ █
             
             // If running in production runtime environment
             if (hostname.includes('prod-runtime') || hostname.includes('all-hands.dev')) {
-                // Use work-2 hostname for backend (port 12001 maps to our backend)
-                return `https://${hostname.replace('work-1-', 'work-2-')}`;
+                // Use same hostname for backend (both frontend and backend on work-1)
+                return `${protocol}//${hostname}`;
             }
             
             // Default fallback
@@ -1314,6 +1314,17 @@ $ █
                     
                     const panelType = this.dataset.panel;
                     switchRightPanel(panelType);
+                });
+            });
+            
+            // Navigation tab switching
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const tabText = this.textContent.trim();
+                    handleNavTabClick(tabText);
                 });
             });
             
@@ -1472,6 +1483,7 @@ $ █
                     },
                     body: JSON.stringify({
                         message: message,
+                        session_id: currentSession || 'web-session-' + Date.now(),
                         execution_mode: 'hybrid'
                     })
                 });
@@ -1481,13 +1493,27 @@ $ █
                 // Remove typing indicator
                 removeTypingIndicator();
                 
-                if (data.success) {
+                console.log('API Response:', data);
+                
+                if (response.ok && data.response) {
+                    // New API format - direct response
+                    addMessageToChat('assistant', data.response);
+                    if (data.session_id) {
+                        currentSession = data.session_id;
+                    }
+                    
+                    // Update metrics if available
+                    if (data.response_time) {
+                        console.log(`Response time: ${data.response_time}s`);
+                    }
+                } else if (data.success && data.data) {
+                    // Legacy format support
                     addMessageToChat('assistant', data.data.response);
                     if (data.session_id) {
                         currentSession = data.session_id;
                     }
                 } else {
-                    addMessageToChat('error', `Error: ${data.error || 'Unknown error'}`);
+                    addMessageToChat('error', `Error: ${data.error || data.message || 'Unknown error'}`);
                 }
             } catch (error) {
                 removeTypingIndicator();
@@ -1612,14 +1638,123 @@ $ █
             document.getElementById('chatInput').focus();
         }
         
-        function deployProject() {
-            addMessageToChat('assistant', '🚀 **Deploy Project**\n\nI\'ll help you deploy your project to production. Choose your deployment target:\n\n• **Vercel** - Frontend applications\n• **Netlify** - Static sites and JAMstack\n• **Railway** - Full-stack applications\n• **Docker** - Containerized deployment\n• **AWS/GCP/Azure** - Cloud platforms\n• **Custom Server** - Your own infrastructure\n\nWhat deployment option would you prefer?');
+        async function deployProject() {
+            try {
+                showNotification('🚀 Initiating deployment...', 'info');
+                addMessageToChat('assistant', '🚀 **Starting Deployment**\n\nInitializing deployment process...');
+                
+                const response = await fetch(`${API_BASE_URL}/api/v3/deploy`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_name: 'xCodeAgent',
+                        environment: 'production',
+                        auto_deploy: true
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showNotification('✅ Deployment initiated successfully!', 'success');
+                    addMessageToChat('assistant', `🚀 **Deployment Started**\n\n**Status**: ${result.status}\n**Environment**: ${result.environment}\n**Deployment ID**: ${result.deployment_id}\n\nYour application is being deployed. You can monitor the progress in real-time.\n\n**Available deployment options:**\n• **Docker** - Containerized deployment ✅\n• **Blue-Green** - Zero-downtime deployment ✅\n• **Auto-scaling** - Dynamic resource allocation ✅`);
+                } else {
+                    throw new Error('Deployment failed');
+                }
+            } catch (error) {
+                console.error('Deployment error:', error);
+                showNotification('❌ Deployment failed', 'error');
+                addMessageToChat('assistant', '❌ **Deployment Failed**\n\nThere was an issue starting the deployment. Please check your configuration and try again.\n\n**Alternative options:**\n• **Manual deployment** - Use the Deploy tab\n• **Local testing** - Test changes locally first\n• **Check logs** - Review system logs for errors');
+            }
             document.getElementById('chatInput').focus();
         }
         
         function createNewBranch() {
             addMessageToChat('assistant', '🌿 **Create New Branch**\n\nI\'ll help you create a new Git branch. What would you like to name it?\n\n**Suggested naming conventions:**\n• `feature/new-component`\n• `bugfix/fix-login-issue`\n• `hotfix/security-patch`\n• `refactor/optimize-performance`\n\nWhat feature or change are you working on?');
             document.getElementById('chatInput').focus();
+        }
+        
+        // Navigation tab handler
+        function handleNavTabClick(tabText) {
+            switch(tabText) {
+                case 'Workspace':
+                    showWorkspaceView();
+                    break;
+                case 'Deploy':
+                    showDeployView();
+                    break;
+                case 'Monitor':
+                    showMonitorView();
+                    break;
+                default:
+                    console.log('Nav tab clicked:', tabText);
+            }
+        }
+        
+        // Show workspace view (default)
+        function showWorkspaceView() {
+            // Already the default view, no changes needed
+            console.log('Showing workspace view');
+        }
+        
+        // Show deploy view with real API integration
+        async function showDeployView() {
+            try {
+                showNotification('🚀 Initializing deployment...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/v3/deploy`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_name: 'xCodeAgent',
+                        environment: 'production',
+                        auto_deploy: true
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showNotification('✅ Deployment initiated successfully!', 'success');
+                    addMessageToChat('assistant', `🚀 **Deployment Started**\n\n**Status**: ${result.status}\n**Environment**: ${result.environment}\n**Deployment ID**: ${result.deployment_id}\n\nYour application is being deployed. You can monitor the progress in real-time.`);
+                } else {
+                    throw new Error('Deployment failed');
+                }
+            } catch (error) {
+                console.error('Deployment error:', error);
+                showNotification('❌ Deployment failed', 'error');
+                addMessageToChat('assistant', '❌ **Deployment Failed**\n\nThere was an issue starting the deployment. Please check your configuration and try again.');
+            }
+        }
+        
+        // Show monitor view with real metrics
+        async function showMonitorView() {
+            try {
+                showNotification('📊 Loading monitoring dashboard...', 'info');
+                
+                // Open monitoring dashboard in new tab
+                const monitorUrl = `${API_BASE_URL}/api/v3/dashboard/`;
+                window.open(monitorUrl, '_blank');
+                
+                // Also fetch current metrics for chat
+                const response = await fetch(`${API_BASE_URL}/api/v3/metrics/summary`);
+                if (response.ok) {
+                    const metrics = await response.json();
+                    const systemMetrics = metrics.system;
+                    const appMetrics = metrics.application;
+                    
+                    showNotification('✅ Monitoring dashboard opened!', 'success');
+                    addMessageToChat('assistant', `📊 **System Monitoring**\n\n**System Health**: ${metrics.health_status}\n**CPU Usage**: ${systemMetrics.cpu_percent}%\n**Memory Usage**: ${systemMetrics.memory_percent}%\n**Active Sessions**: ${appMetrics.active_sessions}\n**Response Time**: ${appMetrics.response_time_avg.toFixed(2)}s\n**Error Rate**: ${appMetrics.error_rate.toFixed(2)}%\n\n🔗 **Full dashboard opened in new tab**`);
+                } else {
+                    throw new Error('Failed to fetch metrics');
+                }
+            } catch (error) {
+                console.error('Monitor error:', error);
+                showNotification('❌ Failed to load monitoring', 'error');
+                addMessageToChat('assistant', '❌ **Monitoring Error**\n\nCould not load system metrics. Please check the backend connection.');
+            }
         }
         
         function switchRightPanel(panelType) {
@@ -1706,63 +1841,130 @@ $ █
                     break;
                     
                 case 'metrics':
+                    loadRealTimeMetrics();
+                    break;
+            }
+        }
+        
+        // Load real-time metrics for the metrics panel
+        async function loadRealTimeMetrics() {
+            const panelContent = document.querySelector('.panel-content');
+            
+            // Show loading state
+            panelContent.innerHTML = `
+                <div class="metrics-section">
+                    <div class="transparency-title">
+                        <span>📈</span>
+                        <span>Loading Metrics...</span>
+                    </div>
+                    <div style="text-align: center; padding: 2rem;">
+                        <div style="color: var(--text-secondary);">Fetching real-time data...</div>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v3/metrics/summary`);
+                if (response.ok) {
+                    const metrics = await response.json();
+                    const systemMetrics = metrics.system;
+                    const appMetrics = metrics.application;
+                    const aiMetrics = metrics.ai_model;
+                    const businessMetrics = metrics.business;
+                    
                     panelContent.innerHTML = `
                         <div class="metrics-section">
                             <div class="transparency-title">
                                 <span>📈</span>
-                                <span>System Metrics</span>
+                                <span>Live System Metrics</span>
                             </div>
                             
                             <div class="metric-group">
                                 <div class="metric-title">Performance</div>
                                 <div class="metric-item">
                                     <span>Response Time</span>
-                                    <span class="metric-value-inline">0.96s avg</span>
+                                    <span class="metric-value-inline">${appMetrics.response_time_avg.toFixed(2)}s avg</span>
                                 </div>
                                 <div class="metric-item">
                                     <span>Success Rate</span>
-                                    <span class="metric-value-inline">98.2%</span>
+                                    <span class="metric-value-inline">${(100 - appMetrics.error_rate).toFixed(1)}%</span>
                                 </div>
                                 <div class="metric-item">
-                                    <span>Uptime</span>
-                                    <span class="metric-value-inline">99.9%</span>
+                                    <span>Active Sessions</span>
+                                    <span class="metric-value-inline">${appMetrics.active_sessions}</span>
                                 </div>
                             </div>
                             
                             <div class="metric-group">
-                                <div class="metric-title">Cost Analysis</div>
+                                <div class="metric-title">AI Model</div>
                                 <div class="metric-item">
-                                    <span>Cost per Request</span>
-                                    <span class="metric-value-inline">$0.00</span>
+                                    <span>Model</span>
+                                    <span class="metric-value-inline">${aiMetrics.model_name}</span>
                                 </div>
                                 <div class="metric-item">
-                                    <span>Monthly Savings</span>
-                                    <span class="metric-value-inline">$500+</span>
+                                    <span>Tokens/Second</span>
+                                    <span class="metric-value-inline">${aiMetrics.avg_tokens_per_second.toFixed(1)}</span>
                                 </div>
                                 <div class="metric-item">
-                                    <span>Total Requests</span>
-                                    <span class="metric-value-inline">Unlimited</span>
+                                    <span>Success Rate</span>
+                                    <span class="metric-value-inline">${((aiMetrics.successful_requests / aiMetrics.total_requests) * 100).toFixed(1)}%</span>
                                 </div>
                             </div>
                             
                             <div class="metric-group">
                                 <div class="metric-title">System Resources</div>
                                 <div class="metric-item">
-                                    <span>Memory Usage</span>
-                                    <span class="metric-value-inline">8.2GB</span>
-                                </div>
-                                <div class="metric-item">
                                     <span>CPU Usage</span>
-                                    <span class="metric-value-inline">35%</span>
+                                    <span class="metric-value-inline">${systemMetrics.cpu_percent}%</span>
                                 </div>
                                 <div class="metric-item">
-                                    <span>GPU Usage</span>
-                                    <span class="metric-value-inline">72%</span>
+                                    <span>Memory Usage</span>
+                                    <span class="metric-value-inline">${systemMetrics.memory_percent}%</span>
                                 </div>
+                                <div class="metric-item">
+                                    <span>Disk Usage</span>
+                                    <span class="metric-value-inline">${systemMetrics.disk_usage_percent.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            
+                            <div class="metric-group">
+                                <div class="metric-title">Business Metrics</div>
+                                <div class="metric-item">
+                                    <span>Daily Active Users</span>
+                                    <span class="metric-value-inline">${businessMetrics.daily_active_users}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span>Code Generations</span>
+                                    <span class="metric-value-inline">${businessMetrics.code_generations}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span>Satisfaction Score</span>
+                                    <span class="metric-value-inline">${businessMetrics.user_satisfaction_score.toFixed(1)}/5</span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 1rem; padding: 0.5rem; background: var(--tertiary-bg); border-radius: 6px; font-size: 0.8rem; color: var(--text-secondary);">
+                                Last updated: ${new Date(metrics.timestamp).toLocaleTimeString()}
                             </div>
                         </div>
                     `;
-                    break;
+                } else {
+                    throw new Error('Failed to fetch metrics');
+                }
+            } catch (error) {
+                console.error('Metrics error:', error);
+                panelContent.innerHTML = `
+                    <div class="metrics-section">
+                        <div class="transparency-title">
+                            <span>❌</span>
+                            <span>Metrics Error</span>
+                        </div>
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            Failed to load real-time metrics.<br>
+                            Please check the backend connection.
+                        </div>
+                    </div>
+                `;
             }
         }
         
@@ -1812,9 +2014,28 @@ $ █
         // Auto-refresh status every 30 seconds
         setInterval(checkSystemStatus, 30000);
         
-        // Add some initial welcome messages
+        // Test API connection on startup
+        async function testApiConnection() {
+            try {
+                console.log('Testing API connection to:', API_BASE_URL);
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                console.log('API Health Check:', data);
+                
+                if (data.status === 'healthy') {
+                    addMessageToChat('assistant', '🟢 **System Connected Successfully!**\n\nBackend Status: ✅ Healthy\nAPI Endpoint: ' + API_BASE_URL + '\nModel: DeepSeek-R1-0528\nMode: Zero-Cost Local Processing\n\n---\n\nWelcome to ZeroCostxCode Professional! 🚀\n\nI\'m your AI coding companion with unified agent capabilities:\n\n🤖 **OpenHands Mode**: High-reliability execution (53% SWE-Bench success)\n🧠 **Manus AI Mode**: Autonomous with full transparency\n✨ **Emergent Mode**: Natural language to production apps\n🎯 **Hybrid Mode**: Best of all three combined\n\nWhat would you like to build today?');
+                } else {
+                    addMessageToChat('error', '🔴 **Connection Issue**\n\nBackend health check failed. Please check the system status.');
+                }
+            } catch (error) {
+                console.error('API Connection Test Failed:', error);
+                addMessageToChat('error', '🔴 **Connection Failed**\n\nUnable to connect to backend API at: ' + API_BASE_URL + '\n\nError: ' + error.message + '\n\nPlease check if the backend is running.');
+            }
+        }
+        
+        // Add some initial welcome messages with connection test
         setTimeout(() => {
-            addMessageToChat('assistant', 'Welcome to ZeroCostxCode Professional! 🚀\n\nI\'m your AI coding companion with unified agent capabilities:\n\n🤖 **OpenHands Mode**: High-reliability execution (53% SWE-Bench success)\n🧠 **Manus AI Mode**: Autonomous with full transparency\n✨ **Emergent Mode**: Natural language to production apps\n🎯 **Hybrid Mode**: Best of all three combined\n\nWhat would you like to build today?');
+            testApiConnection();
         }, 1000);
     </script>
 </body>
